@@ -1,1 +1,7 @@
+First task: get client + server running so that takes user input and moves 1 len snake
+	move gamespace to client side
+	server keep track of location of other player + apple
+	server sends back all location information to clients to display on screen
+How do we want to keep track of the snake and move it (grid?)
+
 Apple image is from minecraft: http://static.planetminecraft.com/files/resource_media/screenshot/1152/RedApple_1084893.jpg

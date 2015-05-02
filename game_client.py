@@ -23,8 +23,8 @@ except IndexError:
 	print 'Usage:', sys.argv[0], '[port 9082/9083]'
 	sys.exit()
 #The initial snake is 5 parts long
-SNAKE1=[(5,5),(5,4),(5,3),(5,2),(5,1)]
-SNAKE2=[(5,5),(5,4),(5,3),(5,2),(5,1)]
+SNAKE1=[(0,0),(0,0),(0,0),(0,0),(0,0)]#[(5,5),(5,4),(5,3),(5,2),(5,1)]
+SNAKE2=[(0,0),(0,0),(0,0),(0,0),(0,0)]#[(5,5),(5,4),(5,3),(5,2),(5,1)]
 scale = 15
 
 
@@ -150,22 +150,19 @@ class GameSpace:
 					self.pressed = 4
 
 
-		# Send server new position to other player
+		# Send server new head and body position to other player
 		global factory
 		pos_str = "position," + str(self.player1.rect.centerx) + ',' + str(self.player1.rect.centery)
 		snake_str = ",".join("%s,%s" % tup for tup in SNAKE1)
-		send_snake = "snake," + snake_str
-
-		
+		send_snake = "snake," + snake_str		
 		factory.connections["server"].sendLine(pos_str)
 		factory.connections["server"].sendLine(send_snake)
 
 		# Check collision
 			# Snake & snake
 			# Snake and itself
+			
 		# Collision: snake and apple
-		#print pos_str
-		#print "Apple position", self.apple.rect.centerx, ",", self.apple.rect.centery
 		if pygame.sprite.collide_rect(self.apple, self.player1) and not self.apple.eaten:
 			print "You ate the apple\n"
 			self.apple.eaten = 1
@@ -199,6 +196,7 @@ class ClientConnFactory(ClientFactory):
 class ClientConnProtocol(LineReceiver):
 	def __init__(self, factory):
 		self.factory = factory
+		self.start = 0
 
 	def connectionMade(self):
 		self.factory.connections["server"] = self
@@ -207,26 +205,19 @@ class ClientConnProtocol(LineReceiver):
 	def connectionLost(self, reason):
 		del self.factory.connections["server"]
 
+	# Process data received from server
 	def lineReceived(self, raw_data):
 		data = raw_data.strip()
 		data = data.split(',')
-		global gs
-		
-		if data[0] == "start":
-			global loop
-			loop.start(1.0/FPS)
-			gs.player1.rect.centerx = int(data[X])
-			gs.player1.rect.centery = int(data[Y])
-		
-		elif data[0] == "position":
+		global gs, SNAKE1, SNAKE2
+				
+		# Update other snake's head position
+		if data[0] == "position":
 			gs.player2.rect.centerx = int(data[X])
 			gs.player2.rect.centery = int(data[Y])
-			
-		elif data[0] == "apple":
-			gs.apple.rect.centerx = int(data[X])
-			gs.apple.rect.centery = int(data[Y])
+
+		# Update other snake's body position
 		elif data[0] == "snake":
-			global SNAKE2
 			i = 0
 			index = 0
 			if len(SNAKE2) < (len(data)-1)/2:
@@ -236,6 +227,53 @@ class ClientConnProtocol(LineReceiver):
 					SNAKE2[index] = (int(data[i]),int(data[i+1]))
 					index+=1
 				i+=1
+
+		# Update apple's new position
+		elif data[0] == "apple":
+			gs.apple.rect.centerx = int(data[X])
+			gs.apple.rect.centery = int(data[Y])
+
+		# Initialize player head starting positions
+		# Start game loop only once body everything is initialized
+		if data[0] == "start":
+			global loop
+			gs.player1.rect.centerx = int(data[X])
+			gs.player1.rect.centery = int(data[Y])
+			self.start += 1
+			if self.start == 3:
+				loop.start(1.0/FPS)
+
+		# Initialize player body starting positions
+		# Start game loop only once body everything is initialized
+		elif data[0] == "init":
+			i = 0
+			index = 0
+			if len(SNAKE1) < (len(data)-1)/2:
+				SNAKE1.append(SNAKE1[-1])
+			for elem in enumerate(data):
+				if i%2 != 0:
+					SNAKE1[index] = (int(data[i]),int(data[i+1]))
+					index+=1
+				i+=1
+			self.start += 1
+			if self.start == 3:
+				loop.start(1.0/FPS)
+
+		# Initialize other player body starting positions
+		# Start game loop only once body everything is initialized
+		elif data[0] == "init2":
+			i = 0
+			index = 0
+			if len(SNAKE2) < (len(data)-1)/2:
+				SNAKE2.append(SNAKE2[-1])
+			for elem in enumerate(data):
+				if i%2 != 0:
+					SNAKE2[index] = (int(data[i]),int(data[i+1]))
+					index+=1
+				i+=1
+			self.start += 1
+			if self.start == 3:
+				loop.start(1.0/FPS)
 
 			
 global factory, gs, loop

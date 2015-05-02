@@ -16,13 +16,15 @@ SCALE = 15
 CLIENT1 = 0
 CLIENT2 = 0
 APPLE = ["apple", 0, 0]
-POS1 = ["position", 5*SCALE, 5*SCALE]
-POS2 = ["position", 5*SCALE, 5*SCALE]
 X = 1
 Y = 2
 
-SNAKE1 = [(5,5),(5,4),(5,3),(5,2),(5,1)]
-SNAKE2=[(5,5),(5,4),(5,3),(5,2),(5,1)]
+# Initial position of head and body for snakes
+OFFSET = int(GAME_WIDTH/3/15)
+POS1 = ["position", OFFSET*SCALE,5*SCALE]
+POS2 = ["position", OFFSET*2*SCALE,5*SCALE]
+SNAKE1 = [(OFFSET,5),(OFFSET,4),(OFFSET,3),(OFFSET,2),(OFFSET,1)]
+SNAKE2 = [(OFFSET*2,5),(OFFSET*2,4),(OFFSET*2,3),(OFFSET*2,2),(OFFSET*2,1)]
 
 class Server():
 	def __init__(self):
@@ -44,6 +46,7 @@ class ClientConnProtocol1(LineReceiver):
 	def __init__(self, factory):
 		self.factory = factory
 	
+	# Concatentates string and integers with comma delimiter
 	def concat_list(self, data):
 		string = str()
 		for item in data:
@@ -51,6 +54,7 @@ class ClientConnProtocol1(LineReceiver):
 		string = string.strip(',')
 		return string + '\r\n'
 
+	# Concatentates header and tuple into string with comma delimiter
 	def concat_tup(self, header, list_tup):
 		string = header + ','
 		for tup in list_tup:
@@ -59,6 +63,7 @@ class ClientConnProtocol1(LineReceiver):
 		string = string.strip(',')
 		return string + '\r\n'
 
+	# Initialize apple and player positions, send information to clients
 	def connectionMade(self):
 		global CLIENT1, CLIENT2
 		CLIENT1 = 1
@@ -68,28 +73,34 @@ class ClientConnProtocol1(LineReceiver):
 		
 		# Start game when both players are connected
 		if CLIENT1 and CLIENT2:
-		
-			# Initialize player starting positions
+			global APPLE, SNAKE1, SNAKE2
+			
+			# Initialize player head starting positions
 			init_pos1 = "start," + str(POS1[X]) + ',' + str(POS1[Y]) + '\r\n'
 			init_pos2 = self.concat_list(POS2)
 			self.factory.connections["client1"].sendLine(init_pos1)
 			self.factory.connections["client1"].sendLine(init_pos2)
-			print "player 1:", init_pos1, ",", init_pos2
 			init_pos1 = self.concat_list(POS1)
 			init_pos2 = "start," + str(POS2[X]) + ',' + str(POS2[Y]) + '\r\n'
 			self.factory.connections["client2"].sendLine(init_pos1)
 			self.factory.connections["client2"].sendLine(init_pos2)
-			print "player 2:", init_pos1, ",", init_pos2
 
+			# Initialize player body starting positions
+			init_bod1 = self.concat_tup("init", SNAKE1)
+			init_bod2 = self.concat_tup("init2", SNAKE2)
+			self.factory.connections["client1"].sendLine(init_bod1)
+			self.factory.connections["client1"].sendLine(init_bod2)
+			init_bod1 = self.concat_tup("init2", SNAKE1)
+			init_bod2 = self.concat_tup("init", SNAKE2)
+			self.factory.connections["client2"].sendLine(init_bod1)
+			self.factory.connections["client2"].sendLine(init_bod2)
 			
 			# Initialize randomized apple position
-			global APPLE
 			x = randint(0+SNAKE_WIDTH*2, GAME_WIDTH-SNAKE_WIDTH*2)
 			y = randint(0+SNAKE_HEIGHT*2, GAME_HEIGHT-SNAKE_HEIGHT*2)
 			APPLE[X] = x
 			APPLE[Y] = y
 			apple_pos = self.concat_list(APPLE)
-			print apple_pos
 			self.factory.connections["client1"].sendLine(apple_pos)
 			self.factory.connections["client2"].sendLine(apple_pos)
 		
@@ -99,6 +110,7 @@ class ClientConnProtocol1(LineReceiver):
 		print "Player 1 has left the game."
 		#print "Lost connection:", reason
 
+	# Process data received from client 1
 	def lineReceived(self, raw_data):
 		global SNAKE1
 		data = raw_data.strip()
@@ -113,7 +125,6 @@ class ClientConnProtocol1(LineReceiver):
 			APPLE[X] = x
 			APPLE[Y] = y
 			apple_pos = self.concat_list(APPLE)
-			print apple_pos
 			self.factory.connections["client1"].sendLine(apple_pos)
 			self.factory.connections["client2"].sendLine(apple_pos)
 			SNAKE1.append(SNAKE1[-1])
@@ -125,8 +136,7 @@ class ClientConnProtocol1(LineReceiver):
 
 		# Send Player 2 new position of Player 1
 		elif data[0] == "position":
-			pos = self.concat_list(data)
-			self.factory.connections["client2"].sendLine(pos)
+			self.factory.connections["client2"].sendLine(raw_data)
 		elif data[0] == "snake":
 			self.factory.connections["client2"].sendLine(raw_data)
 
@@ -167,7 +177,8 @@ class ClientConnProtocol2(LineReceiver):
 		
 		# Start game when both players are connected
 		if CLIENT1 and CLIENT2:
-		
+			global APPLE, SNAKE1, SNAKE2
+			
 			# Initialize player starting positions
 			init_pos1 = "start," + str(POS1[X]) + ',' + str(POS1[Y]) + '\r\n'
 			init_pos2 = self.concat_list(POS2)
@@ -177,15 +188,25 @@ class ClientConnProtocol2(LineReceiver):
 			init_pos2 = "start," + str(POS2[X]) + ',' + str(POS2[Y]) + '\r\n'
 			self.factory.connections["client2"].sendLine(init_pos1)
 			self.factory.connections["client2"].sendLine(init_pos2)
-			
+
+			# Initialize player body starting positions
+			init_bod1 = self.concat_tup("init", SNAKE1)
+			init_bod2 = self.concat_tup("init2", SNAKE2)
+			print init_bod1
+			print init_bod2
+			self.factory.connections["client1"].sendLine(init_bod1)
+			self.factory.connections["client1"].sendLine(init_bod2)
+			init_bod1 = self.concat_tup("init2", SNAKE1)
+			init_bod2 = self.concat_tup("init", SNAKE2)
+			self.factory.connections["client2"].sendLine(init_bod1)
+			self.factory.connections["client2"].sendLine(init_bod2)
+
 			# Initialize randomized apple position
-			global APPLE
 			x = randint(0+SNAKE_WIDTH*2, GAME_WIDTH-SNAKE_WIDTH*2)
 			y = randint(0+SNAKE_HEIGHT*2, GAME_HEIGHT-SNAKE_HEIGHT*2)
 			APPLE[X] = x
 			APPLE[Y] = y
 			apple_pos = self.concat_list(APPLE)
-			print apple_pos
 			self.factory.connections["client1"].sendLine(apple_pos)
 			self.factory.connections["client2"].sendLine(apple_pos)
 		
@@ -221,9 +242,7 @@ class ClientConnProtocol2(LineReceiver):
 
 		# Send Player 1 new position of Player 2
 		elif data[0] == "position":
-			pos = self.concat_list(data)
-			print pos
-			self.factory.connections["client1"].sendLine(pos)
+			self.factory.connections["client1"].sendLine(raw_data)
 		elif data[0] == "snake":
 			self.factory.connections["client1"].sendLine(raw_data)
 			

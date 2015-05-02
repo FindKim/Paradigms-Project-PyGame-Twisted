@@ -8,17 +8,21 @@ from random import randint
 CLIENTPORT1 = 9082
 CLIENTPORT2 = 9083
 GAME_WIDTH = 640
-GAME_HEIGHT = 960
+GAME_HEIGHT = 640
 SNAKE_WIDTH = 15
 SNAKE_HEIGHT = 15
+SCALE = 15
 
 CLIENT1 = 0
 CLIENT2 = 0
 APPLE = ["apple", 0, 0]
-POS1 = ["position", GAME_WIDTH/3, GAME_HEIGHT/2]
-POS2 = ["position", GAME_WIDTH*2/3, GAME_HEIGHT/2]
+POS1 = ["position", 5*SCALE, 5*SCALE]
+POS2 = ["position", 5*SCALE, 5*SCALE]
 X = 1
 Y = 2
+
+SNAKE1 = [(5,5),(5,4),(5,3),(5,2),(5,1)]
+SNAKE2=[(5,5),(5,4),(5,3),(5,2),(5,1)]
 
 class Server():
 	def __init__(self):
@@ -41,7 +45,19 @@ class ClientConnProtocol1(LineReceiver):
 		self.factory = factory
 	
 	def concat_list(self, data):
-		return data[0] + ',' + str(data[X]) + ',' + str(data[Y]) + '\r\n'
+		string = str()
+		for item in data:
+			string = string + str(item) + ','
+		string = string.strip(',')
+		return string + '\r\n'
+
+	def concat_tup(self, header, list_tup):
+		string = header + ','
+		for tup in list_tup:
+			for item in tup:
+				string = string + str(item) + ','
+		string = string.strip(',')
+		return string + '\r\n'
 
 	def connectionMade(self):
 		global CLIENT1, CLIENT2
@@ -58,10 +74,13 @@ class ClientConnProtocol1(LineReceiver):
 			init_pos2 = self.concat_list(POS2)
 			self.factory.connections["client1"].sendLine(init_pos1)
 			self.factory.connections["client1"].sendLine(init_pos2)
+			print "player 1:", init_pos1, ",", init_pos2
 			init_pos1 = self.concat_list(POS1)
 			init_pos2 = "start," + str(POS2[X]) + ',' + str(POS2[Y]) + '\r\n'
-			self.factory.connections["client1"].sendLine(init_pos1)
+			self.factory.connections["client2"].sendLine(init_pos1)
 			self.factory.connections["client2"].sendLine(init_pos2)
+			print "player 2:", init_pos1, ",", init_pos2
+
 			
 			# Initialize randomized apple position
 			global APPLE
@@ -81,12 +100,14 @@ class ClientConnProtocol1(LineReceiver):
 		#print "Lost connection:", reason
 
 	def lineReceived(self, raw_data):
+		global SNAKE1
 		data = raw_data.strip()
 		data = data.split(',')
 
 		# Apple was eaten, spawn new apple and send to clients pos
 		if "apple" in raw_data:
 			global APPLE
+			print "Player 1 has eaten the apple"
 			x = randint(0+SNAKE_WIDTH*2, GAME_WIDTH-SNAKE_WIDTH*2)
 			y = randint(0+SNAKE_HEIGHT*2, GAME_HEIGHT-SNAKE_HEIGHT*2)
 			APPLE[X] = x
@@ -95,12 +116,19 @@ class ClientConnProtocol1(LineReceiver):
 			print apple_pos
 			self.factory.connections["client1"].sendLine(apple_pos)
 			self.factory.connections["client2"].sendLine(apple_pos)
+			SNAKE1.append(SNAKE1[-1])
+			snake_str1 = ",".join("%s,%s" % tup for tup in SNAKE1)
+			my_snake = "my_snake," + snake_str1
+			other_snake = "other_snake," + snake_str1
+			self.factory.connections["client1"].sendLine(my_snake)
+			self.factory.connections["client2"].sendLine(other_snake)
 
 		# Send Player 2 new position of Player 1
 		elif data[0] == "position":
 			pos = self.concat_list(data)
 			self.factory.connections["client2"].sendLine(pos)
-
+		elif data[0] == "snake":
+			self.factory.connections["client2"].sendLine(raw_data)
 
 
 
@@ -115,7 +143,20 @@ class ClientConnProtocol2(LineReceiver):
 		self.factory = factory
 	
 	def concat_list(self, data):
-		return data[0] + ',' + str(data[X]) + ',' + str(data[Y]) + '\r\n'
+		string = str()
+		for item in data:
+			string = string + str(item) + ','
+		string = string.strip(',')
+		return string + '\r\n'
+		#return data[0] + ',' + str(data[X]) + ',' + str(data[Y]) + '\r\n'
+
+	def concat_tup(self, header, list_tup):
+		string = header + ','
+		for tup in list_tup:
+			for item in tup:
+				string = string + str(item) + ','
+		string = string.strip(',')
+		return string + '\r\n'
 
 	def connectionMade(self):
 		global CLIENT1, CLIENT2
@@ -134,7 +175,7 @@ class ClientConnProtocol2(LineReceiver):
 			self.factory.connections["client1"].sendLine(init_pos2)
 			init_pos1 = self.concat_list(POS1)
 			init_pos2 = "start," + str(POS2[X]) + ',' + str(POS2[Y]) + '\r\n'
-			self.factory.connections["client1"].sendLine(init_pos1)
+			self.factory.connections["client2"].sendLine(init_pos1)
 			self.factory.connections["client2"].sendLine(init_pos2)
 			
 			# Initialize randomized apple position
@@ -155,12 +196,14 @@ class ClientConnProtocol2(LineReceiver):
 		#print "Lost connection:", reason
 
 	def lineReceived(self, raw_data):
+		global SNAKE2
 		data = raw_data.strip()
 		data = data.split(',')
 
 		# Apple was eaten, spawn new apple and send to clients pos
 		if "apple" in raw_data:
 			global APPLE
+			print "Player 2 has eaten the apple"
 			x = randint(0+SNAKE_WIDTH*2, GAME_WIDTH-SNAKE_WIDTH*2)
 			y = randint(0+SNAKE_HEIGHT*2, GAME_HEIGHT-SNAKE_HEIGHT*2)
 			APPLE[X] = x
@@ -169,11 +212,22 @@ class ClientConnProtocol2(LineReceiver):
 			print apple_pos
 			self.factory.connections["client1"].sendLine(apple_pos)
 			self.factory.connections["client2"].sendLine(apple_pos)
+			SNAKE2.append(SNAKE2[-1])
+			snake_str2 = ",".join("%s,%s" % tup for tup in SNAKE2)
+			my_snake = "my_snake," + snake_str2
+			other_snake = "other_snake," + snake_str2
+			self.factory.connections["client1"].sendLine(other_snake)
+			self.factory.connections["client2"].sendLine(my_snake)
 
 		# Send Player 1 new position of Player 2
 		elif data[0] == "position":
 			pos = self.concat_list(data)
+			print pos
 			self.factory.connections["client1"].sendLine(pos)
+		elif data[0] == "snake":
+			self.factory.connections["client1"].sendLine(raw_data)
+			
+
 
 
 if __name__ == '__main__':

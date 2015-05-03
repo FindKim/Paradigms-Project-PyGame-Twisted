@@ -62,15 +62,6 @@ class Snake(pygame.sprite.Sprite):
 		self.rect.centery = 0
 		self.length = 5
 
-class Other_Snake(pygame.sprite.Sprite):
-	def __init__(self,gs=None):
-		pygame.sprite.Sprite.__init__(self)
-		self.gs = gs
-		self.image = pygame.image.load("images/snake_green.png")
-		self.rect = self.image.get_rect()
-		self.rect.centerx = 0
-		self.rect.centery = 0
-		self.length = 5
 
 class GameSpace:
 	def __init__(self):
@@ -106,7 +97,7 @@ class GameSpace:
 		#  Define players
 		self.apple = Apple(self)
 		self.player1 = Snake(self)
-		self.player2 = Other_Snake(self)
+		self.player2 = Snake(self)
 		self.k = 0
 		self.pressed = 2
 
@@ -182,6 +173,7 @@ class GameSpace:
 
 		# Deal with the start screen
 		while START:
+			self.player2.image = pygame.image.load("images/snake_green.png")
 			self.screen.blit(self.background, [-1000, -400])
 			b = self.screen.blit(self.start_button, [75,400]) # Start button
 			var = self.button_pressed(b) # If button was pressed

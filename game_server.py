@@ -105,6 +105,7 @@ class ClientConnProtocol1(LineReceiver):
 			self.factory.connections["client2"].sendLine(apple_pos)
 		
 	def connectionLost(self, reason):
+		self.factory.connections["client1"].transport.loseConnection()
 		del self.factory.connections["client1"]
 		CLIENT1 = 0
 		print "Player 1 has left the game."
@@ -138,6 +139,8 @@ class ClientConnProtocol1(LineReceiver):
 		elif data[0] == "position":
 			self.factory.connections["client2"].sendLine(raw_data)
 		elif data[0] == "snake":
+			self.factory.connections["client2"].sendLine(raw_data)
+		elif "dead" in raw_data:
 			self.factory.connections["client2"].sendLine(raw_data)
 
 
@@ -211,10 +214,12 @@ class ClientConnProtocol2(LineReceiver):
 			self.factory.connections["client2"].sendLine(apple_pos)
 		
 	def connectionLost(self, reason):
+		self.factory.connections["client2"].transport.loseConnection()
 		del self.factory.connections["client2"]
 		CLIENT2 = 0
 		print "Player 2 has left the game."
 		#print "Lost connection:", reason
+
 
 	def lineReceived(self, raw_data):
 		global SNAKE2
@@ -244,6 +249,8 @@ class ClientConnProtocol2(LineReceiver):
 		elif data[0] == "position":
 			self.factory.connections["client1"].sendLine(raw_data)
 		elif data[0] == "snake":
+			self.factory.connections["client1"].sendLine(raw_data)
+		elif "dead" in raw_data:
 			self.factory.connections["client1"].sendLine(raw_data)
 			
 
